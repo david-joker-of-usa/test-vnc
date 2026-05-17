@@ -9,7 +9,7 @@ RUN apt update -y && apt install --no-install-recommends -y \
     apt clean && rm -rf /var/lib/apt/lists/*
 
 # 👉 Firefox (PPA বাদ দিয়ে stable way)
-RUN apt update -y && apt install -y firefox-esr xubuntu-icon-theme
+RUN apt update -y && apt install -y xubuntu-icon-theme
 
 RUN touch /root/.Xauthority
 
