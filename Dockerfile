@@ -1,26 +1,47 @@
-FROM --platform=linux/amd64 ubuntu:22.04
+FROM debian:bullseye
 
 ENV DEBIAN_FRONTEND=noninteractive
 
-# Add password
-ENV PASS=123456
+RUN dpkg --add-architecture i386
 
-RUN apt update -y && apt install --no-install-recommends -y xfce4 xfce4-goodies tigervnc-standalone-server novnc websockify sudo xterm init systemd snapd vim net-tools curl wget git tzdata
-RUN apt update -y && apt install -y dbus-x11 x11-utils x11-xserver-utils x11-apps
-RUN apt install software-properties-common -y
-RUN add-apt-repository ppa:mozillateam/ppa -y
-RUN echo 'Package: *' >> /etc/apt/preferences.d/mozilla-firefox
-RUN echo 'Pin: release o=LP-PPA-mozillateam' >> /etc/apt/preferences.d/mozilla-firefox
-RUN echo 'Pin-Priority: 1001' >> /etc/apt/preferences.d/mozilla-firefox
-RUN echo 'Unattended-Upgrade::Allowed-Origins:: "LP-PPA-mozillateam:jammy";' | tee /etc/apt/apt.conf.d/51unattended-upgrades-firefox
-RUN apt update -y && apt install -y firefox
-RUN apt update -y && apt install -y xubuntu-icon-theme
-RUN touch /root/.Xauthority
+RUN apt update && apt install -y \
+    xrdp \
+    xfce4 \
+    xfce4-goodies \
+    xorg \
+    dbus-x11 \
+    sudo \
+    curl \
+    wget \
+    nano \
+    net-tools \
+    policykit-1 \
+    pulseaudio \
+    pulseaudio-utils \
+    wine \
+    wine32 \
+    firefox-esr && \
+    apt clean && rm -rf /var/lib/apt/lists/*
 
 # Set root password
-RUN echo "root:${PASS}" | chpasswd
+RUN echo "root:root" | chpasswd
 
-EXPOSE 5901
-EXPOSE 6080
+RUN sed -i 's/^allowed_users=.*/allowed_users=anybody/' /etc/X11/Xwrapper.config || echo "allowed_users=anybody" >> /etc/X11/Xwrapper.config
 
-CMD bash -c "vncserver -localhost no -SecurityTypes None -geometry 1024x768 --I-KNOW-THIS-IS-INSECURE && openssl req -new -subj \"/C=JP\" -x509 -days 365 -nodes -out self.pem -keyout self.pem && websockify -D --web=/usr/share/novnc/ --cert=self.pem 6080 localhost:5901 && tail -f /dev/null"
+RUN echo "startxfce4" > /root/.xsession && chmod 700 /root/.xsession
+
+# Generate machine-id for dbus
+RUN mkdir -p /var/run/dbus && dbus-uuidgen > /var/lib/dbus/machine-id
+
+RUN sed -i 's/crypt_level=high/crypt_level=low/' /etc/xrdp/xrdp.ini && \
+    sed -i 's/security_layer=negotiate/security_layer=rdp/' /etc/xrdp/xrdp.ini && \
+    echo "exec startxfce4" > /etc/xrdp/startwm.sh && chmod +x /etc/xrdp/startwm.sh
+
+RUN adduser xrdp ssl-cert
+
+COPY start.sh /start.sh
+RUN chmod +x /start.sh
+
+EXPOSE 3389
+
+CMD ["/start.sh"]
